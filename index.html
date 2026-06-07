@@ -37,4 +37,123 @@
   <p class="sub">Base Mainnet — ERC-721</p>
   <div class="row"><span class="row-label">Fiyat</span><span class="row-val">0.0000001 ETH</span></div>
   <div class="row"><span class="row-label">Mint edilen</span><span class="row-val" id="minted">...</span></div>
-  <div class="row"><span class="row-label">Network</span><sp
+  <div class="row"><span class="row-label">Network</span><span class="row-val">Base Mainnet</span></div>
+  <div class="wallet-box" id="wallet-box" onclick="connectWallet()">
+    <div class="dot" id="dot"></div>
+    <span class="addr" id="addr">MetaMask bağla</span>
+    <span>🦊</span>
+  </div>
+  <button class="mint-btn" id="mint-btn" disabled onclick="mintNFT()">Mint et</button>
+  <div class="status" id="status">Cüzdanını bağla</div>
+  <div class="success" id="success">✅ Mint başarılı!</div>
+  <div class="error" id="error"></div>
+  <div class="tx-link" id="tx-link"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script>
+const CONTRACT = "0x57BBe1233CDE41C3eBcadF71B64c66f49D5E36D2";
+const BASE_CHAIN_ID = 8453;
+const BASE_RPC = "https://mainnet.base.org";
+const PRICE = ethers.utils.parseEther("0.0000001");
+const ZERO = "0x0000000000000000000000000000000000000000";
+
+const ABI = [
+  "function claim(address receiver, uint256 quantity, address currency, uint256 pricePerToken, (bytes32[] proof, uint256 quantityLimitPerWallet, uint256 pricePerToken, address currency) allowlistProof, bytes data) external payable",
+  "function nextTokenIdToMint() external view returns (uint256)"
+];
+
+let provider, signer, userAddress;
+
+async function loadInfo() {
+  try {
+    const rpc = new ethers.providers.JsonRpcProvider(BASE_RPC);
+    const contract = new ethers.Contract(CONTRACT, ABI, rpc);
+    const minted = await contract.nextTokenIdToMint();
+    document.getElementById('minted').textContent = minted.toString();
+  } catch(e) {
+    document.getElementById('minted').textContent = "—";
+  }
+}
+
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert("MetaMask yüklü değil! metamask.io adresinden indir.");
+    return;
+  }
+  try {
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const network = await provider.getNetwork();
+    if (network.chainId !== BASE_CHAIN_ID) {
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x2105" }] });
+      } catch(e) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{ chainId: "0x2105", chainName: "Base", rpcUrls: ["https://mainnet.base.org"], nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, blockExplorerUrls: ["https://basescan.org"] }]
+        });
+      }
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+    }
+    signer = provider.getSigner();
+    userAddress = await signer.getAddress();
+    const short = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+    document.getElementById('addr').textContent = short;
+    document.getElementById('dot').classList.add('on');
+    document.getElementById('mint-btn').disabled = false;
+    document.getElementById('status').textContent = "Base mainnet — hazır";
+  } catch(e) {
+    document.getElementById('status').textContent = "Bağlantı başarısız: " + (e.message || "");
+  }
+}
+
+async function mintNFT() {
+  if (!signer) return;
+  const btn = document.getElementById('mint-btn');
+  const status = document.getElementById('status');
+  const successEl = document.getElementById('success');
+  const errorEl = document.getElementById('error');
+  const txLink = document.getElementById('tx-link');
+
+  btn.disabled = true;
+  btn.textContent = "Onay bekleniyor...";
+  status.textContent = "MetaMask'ta onayla";
+  successEl.style.display = 'none';
+  errorEl.style.display = 'none';
+  txLink.style.display = 'none';
+
+  try {
+    const contract = new ethers.Contract(CONTRACT, ABI, signer);
+    const priceInWei = 100;
+    const tx = await contract.claim(
+      userAddress,
+      1,
+      ZERO,
+      priceInWei,
+      { proof: [], quantityLimitPerWallet: 0, pricePerToken: priceInWei, currency: ZERO },
+      "0x",
+      { value: PRICE }
+    );
+    btn.textContent = "İşlem gönderildi...";
+    status.textContent = "Blok onaylanıyor...";
+    await tx.wait();
+    btn.textContent = "Mint et";
+    btn.disabled = false;
+    successEl.style.display = 'block';
+    status.textContent = "Base mainnet — hazır";
+    txLink.style.display = 'block';
+    txLink.innerHTML = '<a href="https://basescan.org/tx/' + tx.hash + '" target="_blank">Basescan\'de gör →</a>';
+  } catch(e) {
+    btn.textContent = "Mint et";
+    btn.disabled = false;
+    errorEl.style.display = 'block';
+    errorEl.textContent = "Hata: " + (e.reason || e.data?.message || e.message || "İşlem reddedildi");
+    status.textContent = "Tekrar dene";
+  }
+}
+
+loadInfo();
+</script>
+</body>
+</html>
