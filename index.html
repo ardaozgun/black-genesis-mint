@@ -34,11 +34,11 @@
 <div class="card">
   <div class="nft-img"></div>
   <h1>Black Genesis</h1>
-  <p class="sub">Base Mainnet — ERC-721</p>
+  <p class="sub">Base Mainnet — ERC-1155</p>
   <div class="row"><span class="row-label">Fiyat</span><span class="row-val">0.0000001 ETH</span></div>
   <div class="row"><span class="row-label">Mint edilen</span><span class="row-val" id="minted">...</span></div>
   <div class="row"><span class="row-label">Network</span><span class="row-val">Base Mainnet</span></div>
-  <div class="wallet-box" id="wallet-box" onclick="connectWallet()">
+  <div class="wallet-box" onclick="connectWallet()">
     <div class="dot" id="dot"></div>
     <span class="addr" id="addr">MetaMask bağla</span>
     <span>🦊</span>
@@ -53,14 +53,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script>
 const CONTRACT = "0x57BBe1233CDE41C3eBcadF71B64c66f49D5E36D2";
+const TOKEN_ID = 0;
 const BASE_CHAIN_ID = 8453;
 const BASE_RPC = "https://mainnet.base.org";
-const PRICE = ethers.utils.parseEther("0.0000001");
 const ZERO = "0x0000000000000000000000000000000000000000";
+const PRICE = ethers.utils.parseEther("0.0000001");
 
 const ABI = [
-  "function claim(address receiver, uint256 quantity, address currency, uint256 pricePerToken, (bytes32[] proof, uint256 quantityLimitPerWallet, uint256 pricePerToken, address currency) allowlistProof, bytes data) external payable",
-  "function nextTokenIdToMint() external view returns (uint256)"
+  "function claim(address receiver, uint256 tokenId, uint256 quantity, address currency, uint256 pricePerToken, (bytes32[] proof, uint256 quantityLimitPerWallet, uint256 pricePerToken, address currency) allowlistProof, bytes data) external payable",
+  "function totalSupply(uint256 tokenId) external view returns (uint256)"
 ];
 
 let provider, signer, userAddress;
@@ -69,18 +70,15 @@ async function loadInfo() {
   try {
     const rpc = new ethers.providers.JsonRpcProvider(BASE_RPC);
     const contract = new ethers.Contract(CONTRACT, ABI, rpc);
-    const minted = await contract.nextTokenIdToMint();
-    document.getElementById('minted').textContent = minted.toString();
+    const supply = await contract.totalSupply(TOKEN_ID);
+    document.getElementById('minted').textContent = supply.toString();
   } catch(e) {
     document.getElementById('minted').textContent = "—";
   }
 }
 
 async function connectWallet() {
-  if (!window.ethereum) {
-    alert("MetaMask yüklü değil! metamask.io adresinden indir.");
-    return;
-  }
+  if (!window.ethereum) { alert("MetaMask yüklü değil!"); return; }
   try {
     provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
@@ -98,13 +96,12 @@ async function connectWallet() {
     }
     signer = provider.getSigner();
     userAddress = await signer.getAddress();
-    const short = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-    document.getElementById('addr').textContent = short;
+    document.getElementById('addr').textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
     document.getElementById('dot').classList.add('on');
     document.getElementById('mint-btn').disabled = false;
     document.getElementById('status').textContent = "Base mainnet — hazır";
   } catch(e) {
-    document.getElementById('status').textContent = "Bağlantı başarısız: " + (e.message || "");
+    document.getElementById('status').textContent = "Bağlantı başarısız";
   }
 }
 
@@ -128,6 +125,7 @@ async function mintNFT() {
     const priceInWei = 100;
     const tx = await contract.claim(
       userAddress,
+      TOKEN_ID,
       1,
       ZERO,
       priceInWei,
