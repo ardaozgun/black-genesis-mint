@@ -8,8 +8,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .card { background: white; border-radius: 20px; padding: 28px 24px; width: 340px; border: 1px solid #e5e5e5; }
-  .nft-img { width: 100%; aspect-ratio: 1; border-radius: 12px; background: #000; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
-  .nft-img span { color: #333; font-size: 13px; }
+  .nft-img { width: 100%; aspect-ratio: 1; border-radius: 12px; background: #000; margin-bottom: 20px; }
   h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
   .sub { font-size: 13px; color: #888; margin-bottom: 16px; }
   .row { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #f0f0f0; font-size: 14px; }
@@ -25,17 +24,17 @@
   .mint-btn:hover:not(:disabled) { background: #222; }
   .status { font-size: 12px; color: #aaa; text-align: center; margin-top: 10px; min-height: 18px; }
   .success { display: none; font-size: 13px; color: #16a34a; text-align: center; margin-top: 10px; }
-  .error { display: none; font-size: 12px; color: #dc2626; text-align: center; margin-top: 10px; }
+  .error { display: none; font-size: 12px; color: #dc2626; text-align: center; margin-top: 10px; word-break: break-word; }
   .tx-link { display: none; font-size: 12px; text-align: center; margin-top: 8px; }
   .tx-link a { color: #0052FF; }
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="nft-img"><span>⬛ Black Genesis</span></div>
+  <div class="nft-img"></div>
   <h1>Black Genesis</h1>
   <p class="sub">Base Mainnet — ERC-721</p>
-  <div class="row"><span class="row-label">Fiyat</span><span class="row-val" id="price">Yükleniyor...</span></div>
+  <div class="row"><span class="row-label">Fiyat</span><span class="row-val">0.0000001 ETH</span></div>
   <div class="row"><span class="row-label">Mint edilen</span><span class="row-val" id="minted">...</span></div>
   <div class="row"><span class="row-label">Network</span><span class="row-val">Base Mainnet</span></div>
   <div class="wallet-box" id="wallet-box" onclick="connectWallet()">
@@ -55,6 +54,8 @@
 const CONTRACT = "0x57BBe1233CDE41C3eBcadF71B64c66f49D5E36D2";
 const BASE_CHAIN_ID = 8453;
 const BASE_RPC = "https://mainnet.base.org";
+const PRICE = ethers.utils.parseEther("0.0000001");
+const ZERO = "0x0000000000000000000000000000000000000000";
 
 const ABI = [
   "function claim(address receiver, uint256 quantity, address currency, uint256 pricePerToken, (bytes32[] proof, uint256 quantityLimitPerWallet, uint256 pricePerToken, address currency) allowlistProof, bytes data) external payable",
@@ -69,9 +70,7 @@ async function loadInfo() {
     const contract = new ethers.Contract(CONTRACT, ABI, rpc);
     const minted = await contract.nextTokenIdToMint();
     document.getElementById('minted').textContent = minted.toString();
-    document.getElementById('price').textContent = "Ücretsiz / Gas";
   } catch(e) {
-    document.getElementById('price').textContent = "—";
     document.getElementById('minted').textContent = "—";
   }
 }
@@ -104,7 +103,7 @@ async function connectWallet() {
     document.getElementById('mint-btn').disabled = false;
     document.getElementById('status').textContent = "Base mainnet — hazır";
   } catch(e) {
-    document.getElementById('status').textContent = "Bağlantı başarısız";
+    document.getElementById('status').textContent = "Bağlantı başarısız: " + (e.message || "");
   }
 }
 
@@ -125,11 +124,15 @@ async function mintNFT() {
 
   try {
     const contract = new ethers.Contract(CONTRACT, ABI, signer);
-    const ZERO = "0x0000000000000000000000000000000000000000";
+    const priceInWei = 100;
     const tx = await contract.claim(
-      userAddress, 1, ZERO, 0,
-      { proof: [], quantityLimitPerWallet: 0, pricePerToken: 0, currency: ZERO },
-      "0x"
+      userAddress,
+      1,
+      ZERO,
+      priceInWei,
+      { proof: [], quantityLimitPerWallet: 0, pricePerToken: priceInWei, currency: ZERO },
+      "0x",
+      { value: PRICE }
     );
     btn.textContent = "İşlem gönderildi...";
     status.textContent = "Blok onaylanıyor...";
@@ -144,7 +147,7 @@ async function mintNFT() {
     btn.textContent = "Mint et";
     btn.disabled = false;
     errorEl.style.display = 'block';
-    errorEl.textContent = "Hata: " + (e.reason || e.message || "İşlem reddedildi");
+    errorEl.textContent = "Hata: " + (e.reason || e.data?.message || e.message || "İşlem reddedildi");
     status.textContent = "Tekrar dene";
   }
 }
