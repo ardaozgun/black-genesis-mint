@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="base:app_id" content="6a254bd0582e63b338c2683c" />
+<meta name="talentapp:project_verification" content="4e019a6fb4ab9ee7d13a561e04eae11490dde7d87086f51a6306e1a754f9342b1912b805a229f92a1ccb6a74768605d4abf3211d567d9b58b35d4a131b88f5d8">
 <title>Black Genesis — NFT Mint</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -124,11 +125,7 @@ async function mintNFT() {
     const contract = new ethers.Contract(CONTRACT, ABI, signer);
     const priceInWei = 100;
     const tx = await contract.claim(
-      userAddress,
-      TOKEN_ID,
-      1,
-      ZERO,
-      priceInWei,
+      userAddress, TOKEN_ID, 1, ZERO, priceInWei,
       { proof: [], quantityLimitPerWallet: 0, pricePerToken: priceInWei, currency: ZERO },
       "0x",
       { value: PRICE }
